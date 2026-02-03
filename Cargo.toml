@@ -12,5 +12,5 @@ windows-sys = { version = "0.52", features = [
 ] }
 
 [build-dependencies]
-cc = "1.2.55"
-bindgen = "0.72.1"
+cc = "1.2"
+bindgen = "0.72"
