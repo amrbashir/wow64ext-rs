@@ -93,3 +93,4 @@ extern BOOL __cdecl WriteProcessMemory64(HANDLE hProcess, DWORD64 lpBaseAddress,
 extern BOOL __cdecl GetThreadContext64(HANDLE hThread, struct _CONTEXT64 *lpContext);
 extern BOOL __cdecl SetThreadContext64(HANDLE hThread, const struct _CONTEXT64 *lpContext);
 extern VOID __cdecl SetLastErrorFromX64Call(DWORD64 status);
+extern VOID __cdecl Wow64ExtInitialize(void);

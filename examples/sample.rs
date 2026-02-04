@@ -105,6 +105,8 @@ unsafe fn alloc_test(h_process: HANDLE) {
 }
 
 unsafe fn run() {
+    Wow64ExtInitialize();
+
     let wide_wow64cpu: Vec<u16> = "wow64cpu.dll\0".encode_utf16().collect();
     let turbo_dispatch: *const i8 = b"TurboDispatchJumpAddressStart\0".as_ptr() as _;
     let turbo_dispatch_addr = GetModuleHandle64(wide_wow64cpu.as_ptr());

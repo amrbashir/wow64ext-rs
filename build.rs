@@ -1,5 +1,43 @@
-use std::env;
 use std::path::PathBuf;
+
+fn remove_dllmain(source: &str) -> String {
+    let mut result = String::new();
+    let mut in_dllmain = false;
+    let mut brace_count = 0;
+    let mut dllmain_start_pattern = false;
+
+    for line in source.lines() {
+        let trimmed = line.trim();
+
+        if !in_dllmain {
+            if trimmed.starts_with("BOOL WINAPI DllMain(") {
+                in_dllmain = true;
+                brace_count = 0;
+                dllmain_start_pattern = true;
+                continue;
+            }
+            result.push_str(line);
+            result.push('\n');
+        } else {
+            for c in trimmed.chars() {
+                if c == '{' {
+                    brace_count += 1;
+                    if dllmain_start_pattern && brace_count == 1 {
+                        dllmain_start_pattern = false;
+                    }
+                } else if c == '}' {
+                    brace_count -= 1;
+                    if brace_count == 0 {
+                        in_dllmain = false;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    result
+}
 
 fn main() {
     let target = std::env::var("TARGET").unwrap();
@@ -23,12 +61,25 @@ fn main() {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let manifest_dir = PathBuf::from(&manifest_dir);
 
-    let wow64_ext_dir = manifest_dir.join("rewolf-wow64ext").join("src");
+    let wow64ext_src = manifest_dir.join("rewolf-wow64ext/src");
+    println!("cargo:rerun-if-changed={}", wow64ext_src.display());
+
+    let wow64ext_cpp = wow64ext_src.join("wow64ext.cpp");
+    let wow64ext_cpp = std::fs::read_to_string(&wow64ext_cpp).expect("Failed to read wow64ext.cpp");
+
+    let wow64ext_cpp_patched = out_dir.join("wow64ext.cpp");
+    std::fs::write(&wow64ext_cpp_patched, remove_dllmain(&wow64ext_cpp))
+        .expect("Failed to write patched wow64ext.cpp");
+
+    let wrapper_src = manifest_dir.join("wrapper.cpp");
+    std::fs::copy(&wrapper_src, out_dir.join("wrapper.cpp")).expect("Failed to copy wrapper.cpp");
+    println!("cargo:rerun-if-changed={}", wrapper_src.display());
 
     cc::Build::new()
         .cpp(true)
-        .file(wow64_ext_dir.join("wow64ext.cpp"))
-        .include(wow64_ext_dir.clone())
+        .file(out_dir.join("wrapper.cpp"))
+        .include(&out_dir)
+        .include(&manifest_dir.join("rewolf-wow64ext/src"))
         .compile("wow64ext");
 
     let wrapper_h = manifest_dir.join("wrapper.h");
@@ -50,6 +101,7 @@ fn main() {
         .allowlist_function("GetThreadContext64")
         .allowlist_function("SetThreadContext64")
         .allowlist_function("SetLastErrorFromX64Call")
+        .allowlist_function("Wow64ExtInitialize")
         .merge_extern_blocks(true)
         .generate()
         .expect("Unable to generate bindings")
